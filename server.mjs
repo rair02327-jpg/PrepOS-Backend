@@ -14,12 +14,20 @@ for(const k of ["DATABASE_URL","JWT_ACCESS_SECRET","JWT_REFRESH_SECRET"])if(!pro
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==="disable"?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||10)});
 app.set("trust proxy",1);app.use(helmet({crossOriginResourcePolicy:false}));app.use(express.json({limit:"25mb"}));app.use(cookieParser());
 const origins=(process.env.CORS_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean);
-app.use(cors({origin(o,cb){if(!o||origins.includes(o))return cb(null,true);cb(new Error("CORS origin not allowed"))},credentials:true}));
+// WebIntoApp packages local HTML inside an Android WebView. Such requests may
+// carry the Origin header as "null". Allow that explicit origin plus any
+// production web origins listed in CORS_ORIGINS. Credentials are required for
+// the HttpOnly refresh cookie.
+const corsOrigin=(o,cb)=>{
+  if(!o || o === "null" || origins.includes(o)) return cb(null,true);
+  return cb(new Error("CORS origin not allowed"));
+};
+app.use(cors({origin:corsOrigin,credentials:true,methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],allowedHeaders:["Content-Type","Authorization"]}));
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:30,standardHeaders:true,legacyHeaders:false});
 const apiLimiter=rateLimit({windowMs:60*1000,limit:300,standardHeaders:true,legacyHeaders:false});
 const access=u=>jwt.sign({sub:u.id,role:u.role},process.env.JWT_ACCESS_SECRET,{expiresIn:"15m",issuer:"prepos-api",audience:"prepos-app"});
 const refresh=(u,sid)=>jwt.sign({sub:u.id,sid},process.env.JWT_REFRESH_SECRET,{expiresIn:"30d",issuer:"prepos-api",audience:"prepos-app"});
-const setCookie=(res,t)=>res.cookie("prepos_refresh",t,{httpOnly:true,secure:isProd,sameSite:"lax",path:"/api/v1/auth",maxAge:30*86400000});
+const setCookie=(res,t)=>res.cookie("prepos_refresh",t,{httpOnly:true,secure:isProd,sameSite:"none",path:"/api/v1/auth",maxAge:30*86400000});
 async function auth(req,res,next){try{const h=req.get("authorization")||"";if(!h.startsWith("Bearer "))throw 0;const p=jwt.verify(h.slice(7),process.env.JWT_ACCESS_SECRET,{issuer:"prepos-api",audience:"prepos-app"});const {rows}=await pool.query("select id,email,role,created_at from users where id=$1 and disabled=false",[p.sub]);if(!rows[0])throw 0;req.user=rows[0];next()}catch(_e){res.status(401).json({error:{message:"Authentication required"}})}}
 const creds=z.object({email:z.string().email().max(320),password:z.string().min(8).max(128)});
 app.get("/api/v1/health",async(_q,res)=>{try{await pool.query("select 1");res.json({ok:true,database:"up",time:new Date().toISOString()})}catch(_e){res.status(503).json({ok:false,database:"down"})}});
@@ -61,5 +69,5 @@ async function initDb(){
   await pool.query(schema);
   console.log("PrepOS PostgreSQL schema ready");
 }
-initDb().then(()=>app.listen(PORT,()=>console.log(`PrepOS API listening on ${PORT}`)))
+initDb().then(()=>app.listen(PORT,"0.0.0.0",()=>console.log(`PrepOS API listening on ${PORT}`)))
 .catch(e=>{console.error("Database initialization failed",e);process.exit(1)});
