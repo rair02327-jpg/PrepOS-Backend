@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: prepos
+      POSTGRES_USER: prepos
+      POSTGRES_PASSWORD: change-this-password
+    volumes:
+      - prepos_pg:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U prepos -d prepos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://prepos:change-this-password@db:5432/prepos
+      PGSSL: disable
+      JWT_ACCESS_SECRET: change-me
+      JWT_REFRESH_SECRET: change-me-too
+      CORS_ORIGINS: https://your-web-domain.example
+    ports: ["8080:8080"]
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  prepos_pg:

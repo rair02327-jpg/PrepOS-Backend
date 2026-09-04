@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: prepos-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: prepos-db
+          property: connectionString
+      - key: PGSSL
+        value: require
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+
+databases:
+  - name: prepos-db
+    plan: free
+    databaseName: prepos
+    user: prepos
+    postgresMajorVersion: "17"

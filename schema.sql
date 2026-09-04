@@ -1,0 +1,12 @@
+create table if not exists users(id uuid primary key,email varchar(320) not null unique,password_hash text not null,role varchar(20) not null default 'user',disabled boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists sessions(id uuid primary key,user_id uuid not null references users(id) on delete cascade,refresh_token_hash text not null,expires_at timestamptz not null,last_used_at timestamptz,revoked_at timestamptz,created_at timestamptz not null default now());
+create index if not exists sessions_user_idx on sessions(user_id);
+create table if not exists folders(id text primary key,user_id uuid not null references users(id) on delete cascade,parent_id text,name text not null,icon text,color text,sort_order integer not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create index if not exists folders_user_idx on folders(user_id);
+create table if not exists tests(id text primary key,user_id uuid not null references users(id) on delete cascade,folder_id text,name text not null,content text not null,revisions integer not null default 0,sort_order integer not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create index if not exists tests_user_idx on tests(user_id);create index if not exists tests_folder_idx on tests(user_id,folder_id);
+create table if not exists wrong_questions(id text not null,user_id uuid not null references users(id) on delete cascade,data jsonb not null,updated_at timestamptz not null default now(),primary key(user_id,id));
+create table if not exists review_questions(id text not null,user_id uuid not null references users(id) on delete cascade,data jsonb not null,updated_at timestamptz not null default now(),primary key(user_id,id));
+create table if not exists notes(id text not null,user_id uuid not null references users(id) on delete cascade,data jsonb not null,updated_at timestamptz not null default now(),primary key(user_id,id));
+create table if not exists study_plans(id text not null,user_id uuid not null references users(id) on delete cascade,data jsonb not null,updated_at timestamptz not null default now(),primary key(user_id,id));
+create table if not exists intel(user_id uuid not null references users(id) on delete cascade,key_name varchar(100) not null,data jsonb,updated_at timestamptz not null default now(),primary key(user_id,key_name));
