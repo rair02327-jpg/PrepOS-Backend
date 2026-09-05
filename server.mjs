@@ -54,10 +54,6 @@ const origins = (process.env.CORS_ORIGINS || "")
   .map(x => x.trim())
   .filter(Boolean);
 
-/*
-  WebIntoApp packages local HTML inside Android WebView.
-  Android WebView requests can have Origin: null.
-*/
 const corsOrigin = (o, cb) => {
   if (!o || o === "null" || origins.includes(o)) {
     return cb(null, true);
@@ -623,7 +619,10 @@ app.get(
       });
 
     } catch (e) {
-      console.error("State load failed:", e);
+      console.error(
+        "State load failed:",
+        e
+      );
 
       res.status(500).json({
         error: {
@@ -663,13 +662,6 @@ const state = z.object({
 ========================= */
 
 function jsonParam(v) {
-
-  /*
-    PostgreSQL JSON/JSONB columns need valid JSON.
-    This handles both:
-    - normal JavaScript objects
-    - already-stringified JSON
-  */
 
   if (typeof v === "string") {
 
@@ -715,8 +707,6 @@ app.put(
 
       await c.query("begin");
 
-      /* ---------- FOLDERS ---------- */
-
       await c.query(
         "delete from folders where user_id=$1",
         [req.user.id]
@@ -744,8 +734,6 @@ app.put(
           ]
         );
       }
-
-      /* ---------- TESTS ---------- */
 
       await c.query(
         "delete from tests where user_id=$1",
@@ -779,8 +767,6 @@ app.put(
         );
       }
 
-      /* ---------- DELETE OLD JSON DATA ---------- */
-
       for (
         const tab of [
           "wrong_questions",
@@ -795,8 +781,6 @@ app.put(
           [req.user.id]
         );
       }
-
-      /* ---------- WRONG QUESTIONS ---------- */
 
       for (
         const x
@@ -815,8 +799,6 @@ app.put(
         );
       }
 
-      /* ---------- REVIEW QUESTIONS ---------- */
-
       for (
         const x
         of p.data.reviewQuestions
@@ -834,8 +816,6 @@ app.put(
         );
       }
 
-      /* ---------- NOTES ---------- */
-
       for (
         const x
         of p.data.notes
@@ -852,8 +832,6 @@ app.put(
           ]
         );
       }
-
-      /* ---------- STUDY PLANS ---------- */
 
       for (
         const x
@@ -954,7 +932,9 @@ app.put(
       [
         req.user.id,
         req.params.key,
-        req.body?.data ?? null
+
+        /* FIXED */
+        jsonParam(req.body?.data)
       ]
     );
 
